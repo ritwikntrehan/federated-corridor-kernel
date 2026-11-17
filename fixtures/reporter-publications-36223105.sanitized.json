@@ -1,0 +1,7 @@
+{
+  "meta": { "total": 2, "offset": 0, "limit": 25 },
+  "results": [
+    { "coreproject": "R01HL136679", "pmid": 36223105, "applid": 10229386 },
+    { "coreproject": "R01AG055606", "pmid": 36223105, "applid": 10647801 }
+  ]
+}

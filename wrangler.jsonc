@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "federated-corridor-kernel",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/*"]
+  },
+  // Owner action: create a KV namespace and uncomment/configure this binding.
+  // "kv_namespaces": [{ "binding": "CORRIDOR_CACHE", "id": "..." }],
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,4 @@
+# Optional. OpenAlex basic access and all deterministic examples work without keys.
+OPENALEX_API_KEY=
+# M4 only; no LLM request occurs in the MVP.
+ANTHROPIC_API_KEY=

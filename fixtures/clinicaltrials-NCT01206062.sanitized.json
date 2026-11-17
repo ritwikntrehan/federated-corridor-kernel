@@ -1,0 +1,15 @@
+{
+  "protocolSection": {
+    "identificationModule": { "nctId": "NCT01206062", "briefTitle": "Systolic Blood Pressure Intervention Trial" },
+    "statusModule": { "overallStatus": "COMPLETED" },
+    "designModule": { "phases": ["NA"] },
+    "sponsorCollaboratorsModule": { "leadSponsor": { "name": "National Heart, Lung, and Blood Institute (NHLBI)" } },
+    "conditionsModule": { "conditions": ["Hypertension"] },
+    "armsInterventionsModule": { "interventions": [{ "name": "Intensive Treatment" }, { "name": "Standard Treatment" }] },
+    "referencesModule": { "references": [
+      { "pmid": "26551272", "type": "RESULT", "citation": "A Randomized Trial of Intensive versus Standard Blood-Pressure Control. doi: 10.1056/NEJMoa1511939." },
+      { "pmid": "36223105", "type": "DERIVED", "citation": "Longer-Term All-Cause and Cardiovascular Mortality With Intensive Blood Pressure Control. doi: 10.1001/jamacardio.2022.3345." }
+    ] }
+  },
+  "hasResults": true
+}

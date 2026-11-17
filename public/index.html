@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Source-backed scholarly research corridor inspector"><title>Federated Corridor Kernel</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+  <header><div><p class="eyebrow">BOUNDARY PROTOCOL / v0.1</p><h1>Federated Corridor Kernel</h1></div><div id="status" class="status">Ready</div></header>
+  <main>
+    <section class="panel origin"><div class="panel-head"><span>01</span><h2>Origin</h2></div><p class="muted">Start with one source identifier. The kernel follows only explicit identifiers.</p>
+      <form id="seed-form"><label>Seed type<select id="seed-type"><option value="pmid">PubMed ID</option><option value="work_id">OpenAlex work</option><option value="nct_id">NCT ID</option><option value="project_id">NIH project</option></select></label><label>Identifier<input id="seed-value" value="36223105" required></label><button>Investigate chain</button></form>
+      <button id="golden" class="secondary">Load verified SPRINT example</button><div class="rule"></div><div id="origin-details" class="details"><p>No investigation loaded.</p></div>
+    </section>
+    <section class="panel graph-panel"><div class="panel-head"><span>02</span><h2>Evidence DAG</h2><button id="export" class="text-button" disabled>Export JSON</button></div><div class="legend"><i class="verified"></i>Verified <i class="candidate"></i>Candidate <i class="failed"></i>Failed / absent</div><div id="graph"><div class="empty">Run an investigation to inspect source-backed transitions.</div></div><div id="branch-note" class="branch-note"></div></section>
+    <aside class="panel inspector"><div class="panel-head"><span>03</span><h2>Evidence inspector</h2></div><div id="inspector"><p class="muted">Select a node or edge to inspect its source URI, identifier, boundary projection, customs result, mappings, and hop chain.</p></div></aside>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body></html>
