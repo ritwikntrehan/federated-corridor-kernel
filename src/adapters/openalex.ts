@@ -11,6 +11,7 @@ export const OpenAlexWorkSchema = z.object({
   publication_year: z.number().nullable().optional(), cited_by_count: z.number().int().nonnegative().optional(),
   counts_by_year: z.array(z.object({ year: z.number().int(), cited_by_count: z.number().int().nonnegative() }).passthrough()).optional(),
   authorships: z.array(z.object({ institutions: z.array(z.object({ ror: z.string().nullable().optional() }).passthrough()).optional() }).passthrough()).optional(),
+  abstract_inverted_index: z.record(z.string(), z.array(z.number().int().nonnegative())).nullable().optional(),
   ids: z.object({ openalex: z.string(), doi: z.string().nullable().optional(), pmid: z.string().nullable().optional() }).passthrough(),
   awards: z.array(AwardSchema).nullable().optional(), funders: z.array(z.unknown()).nullable().optional()
 }).passthrough();
@@ -27,7 +28,7 @@ export class OpenAlexAdapter {
   private async get(url: URL) {
     const key = `openalex:${url}`;
     return cachedJson(this.cache, key, 3600, async () => {
-      const response = await this.fetcher(url, { headers: { 'User-Agent': 'federated-corridor-kernel/0.1 (mailto:owner@example.invalid)' } });
+      const response = await this.fetcher(url, { headers: { 'User-Agent': 'federated-corridor-kernel/0.3' } });
       if (!response.ok) throw new Error(`OpenAlex ${response.status}`);
       return response.json();
     });
@@ -38,6 +39,20 @@ export class OpenAlexAdapter {
     const { data, cache } = await this.get(url);
     const parsed = z.object({ results: z.array(OpenAlexWorkSchema) }).parse(data);
     return { records: parsed.results, cache, url: url.toString() };
+  }
+  async findNctMentions(nctId: string, limit = 10) {
+    const id = nctId.toUpperCase(); if (!/^NCT\d{8}$/.test(id)) throw new Error('invalid NCT ID');
+    const url = this.url('works'); url.searchParams.set('filter', `title_and_abstract.search:${id}`); url.searchParams.set('per-page', String(Math.min(Math.max(limit, 1), 25)));
+    const { data, cache } = await this.get(url); const candidates = z.object({ results: z.array(OpenAlexWorkSchema) }).parse(data).results;
+    const accepted: { record: OpenAlexWork; evidence_field: 'title' | 'abstract'; matched_nct: string }[] = []; let missingAbstracts = 0; let rejectedNonmatches = 0;
+    for (const record of candidates) {
+      const title = record.title ?? ''; const abstract = reconstructAbstract(record.abstract_inverted_index); if (!abstract) missingAbstracts++;
+      const boundary = new RegExp(`(^|[^A-Z0-9])${id}([^A-Z0-9]|$)`, 'i');
+      if (boundary.test(title)) accepted.push({ record, evidence_field: 'title', matched_nct: id });
+      else if (boundary.test(abstract)) accepted.push({ record, evidence_field: 'abstract', matched_nct: id });
+      else rejectedNonmatches++;
+    }
+    return { matches: accepted, cache, url: url.toString(), telemetry: { searches: 1, candidates: candidates.length, rejected_nonmatches: rejectedNonmatches, missing_abstracts: missingAbstracts, verified_mentions: accepted.length, no_match_outcomes: accepted.length ? 0 : 1, cache_hits: cache === 'hit' ? 1 : 0 } };
   }
   async getWorkByIdOrPmid(id: string) {
     const normalized = /^\d+$/.test(id) ? `pmid:${id}` : /^(https?:\/\/)?(dx\.)?doi\.org\//i.test(id) ? `doi:${bareDoi(id)}` : id.includes('/') && !id.includes('openalex.org') ? `doi:${bareDoi(id)}` : bareId(id);
@@ -70,4 +85,10 @@ export class OpenAlexAdapter {
         source_work_id: record.id, source_evidence_path: `awards[${index}].funder_award_id` })];
     });
   }
+}
+
+export function reconstructAbstract(index?: Record<string, number[]> | null) {
+  if (!index) return ''; const positioned: [number, string][] = [];
+  for (const [word, positions] of Object.entries(index)) for (const position of positions) positioned.push([position, word]);
+  return positioned.sort((a, b) => a[0] - b[0]).map(([, word]) => word).join(' ');
 }

@@ -1,45 +1,48 @@
-# Federated Corridor Kernel
+# Five-Country Research Instrument
 
-A typed, source-backed boundary-object mesh connecting OpenAlex, NIH RePORTER, and ClinicalTrials.gov. Every crossing returns a `DiplomaticEnvelope`: passport, customs result, resident interpretation, payload, evidence graph, and explicit errors.
+An interactive, source-backed research graph across OpenAlex, NIH RePORTER, ClinicalTrials.gov, USPTO patent grants, and openFDA. Every relationship is explicitly `verified` or `hypothesis`; graph proximity never implies funding, causality, commercialization, ownership, or regulatory reliance.
 
-The verified demo starts at PMID `36223105`, reaches OpenAlex work `W4304757292`, exact NIH project-year records for `R01HL136679`, and ClinicalTrials.gov study `NCT01206062`. See [JOIN_EVIDENCE.md](JOIN_EVIDENCE.md) for what that chain proves—and what it does not.
+The v0.2 milestone is preserved at commit `d88cf6a82493a369b46bf730980dac7ba0e5c45c`. v0.3 adds reverse NCT discovery, snapshot-backed patents, live openFDA records, six investigation entry types, real graph pivots, and per-record source-mode transparency.
 
 ## Run locally
 
 ```bash
 npm install
 npm run dev
+npm run check
 ```
 
-No API key or AI call is required. Open the printed local URL and click **Load verified SPRINT example**.
+No new credential is required. Optional environment variables are `OPENALEX_API_KEY`, `OPENFDA_API_KEY`, and `USPTO_ODP_API_KEY`. The last is reserved for verified future live enrichment; the mandatory patent path uses the attributable public snapshot in `data/`. Keys are added only to outbound requests and are excluded from passports, cache keys, logs, and exports.
 
 ```bash
-npm run check       # strict typecheck, deterministic tests, production build
-npm run test:live   # opt-in current-upstream smoke checks
-npm run benchmark:utility # opt-in live 15-seed workloads; writes UTILITY_PROOF.md + JSON
+npm run test:live
+npm run benchmark:utility:v03
 ```
 
-## HTTP
+## Entry points
 
-- `GET /api/v1/capabilities`
-- `GET /api/v1/works?q=SPRINT&limit=5`
-- `POST /api/v1/traverse/openalex-to-nih-reporter`
-- `POST /api/v1/traverse/openalex-to-clinical-trials`
-- `GET /api/v1/investigate?pmid=36223105`
-- `POST /api/v1/cohort` — constrained ClinicalTrials.gov, NIH RePORTER, or OpenAlex cohort traversal (15 seeds by default, 25 maximum)
-- `GET /api/v1/health`, `/api/v1/openapi.json`, `/api/v1/examples`
-- `POST /mcp` — Streamable HTTP MCP with the five v0.1 tools plus `traverse_cohort`
+`POST /api/v1/investigate` accepts:
 
-Investigation accepts exactly one of `work_id`, `pmid`, `nct_id`, or `project_id`. Export from the inspector preserves the entire DAG and every envelope, not screen coordinates.
+```json
+{
+  "entry_type": "trial | publication | nih_project | patent | fda_product | topic",
+  "entry_id": "NCT01206062",
+  "max_nodes": 40,
+  "max_hops": 2,
+  "include_hypothesis_edges": false
+}
+```
 
-The cohort endpoint defaults to exact links only (`include_hypothesis_edges=false`), reports a denominator-defined per-corridor funnel and drop-offs, and returns a continuation when the Worker request budget is reached. See [BENCHMARK_METHOD.md](BENCHMARK_METHOD.md) and the genuine live observations in [UTILITY_PROOF.md](UTILITY_PROOF.md).
+Topic uses `query` instead of `entry_id`. Provider/corridor arrays and a continuation token are optional. `GET /api/v1/investigate` remains backward compatible with `work_id`, `pmid`, `nct_id`, or `project_id`. Other routes include `POST /api/v1/cohort`, `POST /api/v1/traverse/:corridorId`, and the OpenAPI/capabilities/health endpoints.
 
-## Principles
+MCP retains all prior tools and adds `investigate_entity`. The browser inspector supports universal entry, grounded presets, solid verified edges, dashed hypothesis edges, source/passport inspection, cancellation-safe switching, deterministic merge/deduplication, pivoting from any node, and complete JSON export.
 
-- Exact identifiers outrank and exclude approximation from verified evidence.
-- RePORTER amounts are project-record/fiscal-year amounts, never attributed to the cost of a paper.
-- Missing and failed branches remain inspectable.
-- Adding a country means adding an adapter, corridor, and registry declaration; core orchestration does not change.
-- Standard CI is fixture-backed and offline. Live smoke tests may fail explicitly on an upstream outage but never substitute fixtures as production success.
+## Evidence rules
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) and [DEPLOY_CLOUDFLARE.md](DEPLOY_CLOUDFLARE.md).
+- An exact title/abstract NCT token is `mentions_registered_trial`; it is not automatically a results publication.
+- A patent government-interest statement containing an exact conservatively normalized NIH core is `acknowledges_government_award`; assignee data does not prove current ownership or commercialization.
+- Drug approvals, drug labels, and 510(k) device clearances remain distinct. Exact shared FDA application IDs may join records without conflating their regulatory meaning.
+- Sponsor, ingredient, intervention, institution, topic, and assignee similarities can only be hypotheses.
+- The external-request ceiling is 45; provider failure preserves successful countries and returns partial evidence.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md), [data/PATENT_SNAPSHOT.md](data/PATENT_SNAPSHOT.md), [UTILITY_PROOF_V03.md](UTILITY_PROOF_V03.md), and [DEPLOY_CLOUDFLARE.md](DEPLOY_CLOUDFLARE.md).

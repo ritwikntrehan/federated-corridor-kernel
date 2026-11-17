@@ -4,7 +4,9 @@ export const BoundaryNames = {
   work: 'ScholarlyWorkRef@0.1',
   grant: 'GrantAwardRef@0.1',
   funding: 'ProjectFundingRef@0.1',
-  trial: 'TrialRegistryRef@0.1'
+  trial: 'TrialRegistryRef@0.1',
+  patent: 'PatentGrantRef@0.3',
+  fda: 'FDAProductRef@0.3'
 } as const;
 
 const httpUrl = z.string().url().refine((v) => /^https?:/.test(v), 'must be HTTP(S)');
@@ -83,11 +85,28 @@ export const TrialRegistryRefSchema = z.object({
   }
 });
 
+export const PatentGrantRefSchema = z.object({
+  boundary_type: z.literal(BoundaryNames.patent), patent_number: nonEmpty, title: nonEmpty,
+  grant_date: z.string().date(), assignees: z.array(nonEmpty), inventors: z.array(nonEmpty), cpc_categories: z.array(nonEmpty),
+  government_interest: z.array(z.object({ text: nonEmpty, core_project_ids: z.array(nonEmpty) })),
+  non_patent_literature: z.array(z.object({ doi: nonEmpty.optional(), pmid: z.string().regex(/^\d+$/).optional(), text: nonEmpty })).default([]),
+  source_url: httpUrl, data_mode: z.enum(['live_api', 'verified_public_snapshot']), snapshot_source: httpUrl.optional(), snapshot_date: z.string().date().optional()
+});
+
+export const FDAProductRefSchema = z.object({
+  boundary_type: z.literal(BoundaryNames.fda), record_kind: z.enum(['drug_application', 'drug_label', 'device_510k']), record_id: nonEmpty,
+  application_number: nonEmpty.optional(), k_number: nonEmpty.optional(), sponsor_applicant: nonEmpty.optional(), brand_names: z.array(nonEmpty).default([]),
+  generic_names: z.array(nonEmpty).default([]), ingredients: z.array(nonEmpty).default([]), status: nonEmpty.optional(), event_date: nonEmpty.optional(),
+  nct_mentions: z.array(z.string().regex(/^NCT\d{8}$/)).default([]), source_url: httpUrl, data_mode: z.literal('live_api')
+});
+
 export const BoundarySchemas = {
   [BoundaryNames.work]: ScholarlyWorkRefSchema,
   [BoundaryNames.grant]: GrantAwardRefSchema,
   [BoundaryNames.funding]: ProjectFundingRefSchema,
-  [BoundaryNames.trial]: TrialRegistryRefSchema
+  [BoundaryNames.trial]: TrialRegistryRefSchema,
+  [BoundaryNames.patent]: PatentGrantRefSchema,
+  [BoundaryNames.fda]: FDAProductRefSchema
 } as const;
 
 export type BoundaryName = keyof typeof BoundarySchemas;
@@ -95,6 +114,8 @@ export type ScholarlyWorkRef = z.infer<typeof ScholarlyWorkRefSchema>;
 export type GrantAwardRef = z.infer<typeof GrantAwardRefSchema>;
 export type ProjectFundingRef = z.infer<typeof ProjectFundingRefSchema>;
 export type TrialRegistryRef = z.infer<typeof TrialRegistryRefSchema>;
+export type PatentGrantRef = z.infer<typeof PatentGrantRefSchema>;
+export type FDAProductRef = z.infer<typeof FDAProductRefSchema>;
 
 export const HopSchema = z.object({
   from_country: nonEmpty,
@@ -142,7 +163,8 @@ export const EvidenceNodeSchema = z.object({
   source_uri: httpUrl,
   record_id: nonEmpty,
   boundary: z.unknown().optional(),
-  raw_record: z.unknown().optional()
+  raw_record: z.unknown().optional(),
+  data_mode: z.enum(['live_api', 'verified_public_snapshot']).optional(), snapshot_source: httpUrl.optional(), snapshot_date: z.string().date().optional()
 });
 
 export const EvidenceEdgeSchema = z.object({
@@ -152,7 +174,8 @@ export const EvidenceEdgeSchema = z.object({
   corridor_id: nonEmpty,
   state: z.enum(['verified', 'candidate', 'unmatched', 'failed']),
   evidence_tier: z.enum(['verified', 'hypothesis']).optional(),
-  match_method: z.enum(['exact_nct', 'exact_pmid', 'exact_doi', 'verified_award', 'candidate_similarity', 'none', 'provider_failure']),
+  relation_type: z.enum(['references_registered_trial', 'mentions_registered_trial', 'funded_by_award', 'acknowledges_government_award', 'cites_scholarly_work', 'same_fda_application', 'product_candidate', 'assignee_candidate']).optional(),
+  match_method: z.enum(['exact_nct', 'exact_pmid', 'exact_doi', 'exact_application', 'exact_government_award', 'verified_award', 'candidate_similarity', 'none', 'provider_failure']),
   supporting_uris: z.array(httpUrl).min(1),
   supporting_record_ids: z.array(nonEmpty).min(1),
   explanation: nonEmpty,
@@ -179,6 +202,7 @@ export const DiplomaticEnvelopeSchema = z.object({
   schema_version: z.literal('0.1'),
   envelope_id: z.string().uuid(),
   status: z.enum(['complete', 'partial', 'failed']),
+  data_mode: z.enum(['live_api', 'verified_public_snapshot']),
   payload: z.unknown(),
   passport: PassportSchema,
   customs_declaration: CustomsSchema,
@@ -224,3 +248,14 @@ export const CohortResultSchema = z.object({
   continuation: z.object({ seed_offset: z.number().int().nonnegative() }).nullable(), generated_at: z.string().datetime()
 });
 export type CohortResult = z.infer<typeof CohortResultSchema>;
+
+export const InvestigationQuerySchema = z.object({
+  entry_type: z.enum(['trial', 'publication', 'nih_project', 'patent', 'fda_product', 'topic']),
+  entry_id: nonEmpty.optional(), query: nonEmpty.optional(), max_nodes: z.number().int().min(1).max(100).default(40),
+  max_hops: z.number().int().min(0).max(4).default(2), include_hypothesis_edges: z.boolean().default(false),
+  providers: z.array(z.enum(['openalex', 'nih-reporter', 'clinicaltrials.gov', 'uspto', 'openfda'])).optional(),
+  corridors: z.array(nonEmpty).optional(), continuation: z.string().optional()
+}).superRefine((value, ctx) => {
+  if (value.entry_type === 'topic' ? !value.query : !value.entry_id) ctx.addIssue({ code: z.ZodIssueCode.custom, message: value.entry_type === 'topic' ? 'topic requires query' : 'entry type requires entry_id' });
+});
+export type InvestigationQuery = z.infer<typeof InvestigationQuerySchema>;

@@ -7,7 +7,10 @@ export function normalizeProjectNumber(raw: string): NormalizedProjectNumber {
   const notes: string[] = ['Preserved verbatim funder award identifier.'];
   const compact = raw.trim().toUpperCase().replace(/\s+/g, '');
   if (compact !== raw) notes.push('Trimmed whitespace and uppercased for a search candidate.');
-  const match = compact.match(/^\d?((?:[A-Z]\d{2}|[A-Z]{2}\d)[A-Z]{2}\d{6})(?:-\d{2}(?:[A-Z]\d?)?)?$/);
+  const shorthand = compact.match(/^([A-Z]\d{2})([A-Z]{2})(\d{5})$/);
+  const searchable = shorthand ? `${shorthand[1]}${shorthand[2]}0${shorthand[3]}` : compact;
+  if (shorthand) notes.push('Expanded a five-digit NIH serial from source text with its conservative leading zero.');
+  const match = searchable.match(/^\d?((?:[A-Z]\d{2}|[A-Z]{2}\d)[A-Z]{2}\d{6})(?:-\d{2}(?:[A-Z]\d?)?)?$/);
   if (!match?.[1]) return { raw, candidates: [...new Set([raw, compact])], notes: [...notes, 'Identifier did not match the conservative NIH core-project pattern.'], supported: false };
   const core = match[1];
   if (core !== compact) notes.push(`Extracted NIH core project candidate ${core}; application/support-year suffix remains available in the raw value.`);

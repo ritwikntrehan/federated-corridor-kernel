@@ -1,38 +1,73 @@
 import { OpenAlexAdapter } from './adapters/openalex';
 import { ClinicalTrialsAdapter, references } from './adapters/clinicaltrials';
 import { ReporterAdapter, normalizeProjectNumber } from './adapters/reporter';
-import type { DiplomaticEnvelope, EvidenceGraph } from './contracts';
+import { UsptoAdapter } from './adapters/uspto';
+import { OpenFdaAdapter, type OpenFdaKind } from './adapters/openfda';
+import { InvestigationQuerySchema, type DiplomaticEnvelope, type EvidenceGraph, type InvestigationQuery, type FDAProductRef, type PatentGrantRef, type ProjectFundingRef, type ScholarlyWorkRef, type TrialRegistryRef } from './contracts';
 import type { CacheLike, Fetcher } from './kernel';
 import { createRegistry } from './registry';
 
-export interface Investigation { schema_version: '0.1'; status: 'complete' | 'partial' | 'failed'; seed: Record<string, string>; graph: EvidenceGraph; envelopes: DiplomaticEnvelope[]; errors: { code: string; message: string; provider?: string }[]; generated_at: string; }
-function mergeGraph(target: EvidenceGraph, source: EvidenceGraph) {
-  const nodes = new Map(target.nodes.map((n) => [n.id, n])); source.nodes.forEach((n) => nodes.set(n.id, n));
-  const edges = new Map(target.edges.map((e) => [e.id, e])); source.edges.forEach((e) => edges.set(e.id, e));
-  target.nodes = [...nodes.values()]; target.edges = [...edges.values()];
+export interface Investigation {
+  schema_version: '0.3'; status: 'complete' | 'partial' | 'failed'; query: InvestigationQuery; seed: Record<string, string>; graph: EvidenceGraph; envelopes: DiplomaticEnvelope[];
+  summary: { nih_project_year_records: number; scholarly_works: number; scholarly_citations: number; trial_statuses: Record<string, number>; trial_phases: Record<string, number>; patents: number; assignees: number; drug_approvals: number; device_clearances: number; drug_labels: number };
+  telemetry: { provider_requests: number; request_ceiling: number; budget_stops: number; max_nodes: number; max_hops: number; partial_failures: number };
+  errors: { code: string; message: string; provider?: string }[]; continuation: string | null; generated_at: string;
 }
+type Options = { fetch: Fetcher; cache: CacheLike; now?: () => Date; openAlexApiKey?: string; openFdaApiKey?: string; usptoOdpApiKey?: string };
 
-export async function investigate(seed: { work_id?: string; pmid?: string; nct_id?: string; project_id?: string }, options: { fetch: Fetcher; cache: CacheLike; now?: () => Date; openAlexApiKey?: string }): Promise<Investigation> {
-  const now = options.now ?? (() => new Date()); const graph: EvidenceGraph = { nodes: [], edges: [] }; const envelopes: DiplomaticEnvelope[] = []; const errors: Investigation['errors'] = [];
-  const openalex = new OpenAlexAdapter(options.fetch, options.cache, options.openAlexApiKey); const ctg = new ClinicalTrialsAdapter(options.fetch, options.cache); const reporter = new ReporterAdapter(options.fetch, options.cache); const registry = createRegistry();
-  const context = { fetch: options.fetch, cache: options.cache, now };
-  const processWork = async (identifier: string) => {
-    const { record } = await openalex.getWorkByIdOrPmid(identifier); const work = openalex.projectWork(record); const awards = openalex.projectAwards(record);
-    graph.nodes.push({ id: `openalex:${work.openalex_id.replace(/^.*\//, '')}`, country: 'openalex', type: 'scholarly-work', label: work.title ?? work.openalex_id, state: 'verified', source_uri: work.source_url, record_id: work.openalex_id, boundary: work, raw_record: record });
-    const trialEnvelope = await registry.get('openalex-to-clinical-trials').traverse(work, context); envelopes.push(trialEnvelope); mergeGraph(graph, trialEnvelope.evidence); errors.push(...trialEnvelope.errors.map(({ code, message, provider }) => ({ code, message, ...(provider ? { provider } : {}) })));
-    for (const award of awards.slice(0, 5)) { const e = await registry.get('openalex-to-nih-reporter').traverse(award, context); envelopes.push(e); mergeGraph(graph, e.evidence); errors.push(...e.errors.map(({ code, message, provider }) => ({ code, message, ...(provider ? { provider } : {}) }))); }
+function mergeGraph(target: EvidenceGraph, source: EvidenceGraph) { const nodes = new Map(target.nodes.map((node) => [node.id, node])); source.nodes.forEach((node) => nodes.set(node.id, node)); const edges = new Map(target.edges.map((edge) => [edge.id, edge])); source.edges.forEach((edge) => edges.set(edge.id, edge)); target.nodes = [...nodes.values()]; target.edges = [...edges.values()]; }
+function count(values: string[]) { return values.reduce<Record<string, number>>((result, value) => ({ ...result, [value]: (result[value] ?? 0) + 1 }), {}); }
+function patentNode(patent: PatentGrantRef) { return { id: `uspto:${patent.patent_number}`, country: 'uspto', type: 'patent-grant', label: `${patent.patent_number} · ${patent.title}`, state: 'verified' as const, source_uri: patent.source_url, record_id: patent.patent_number, boundary: patent, data_mode: patent.data_mode, snapshot_source: patent.snapshot_source, snapshot_date: patent.snapshot_date }; }
+function fdaNode(record: FDAProductRef) { return { id: `openfda:${record.record_kind}:${record.record_id}`, country: 'openfda', type: record.record_kind, label: record.brand_names[0] ?? record.generic_names[0] ?? record.record_id, state: 'verified' as const, source_uri: record.source_url, record_id: record.record_id, boundary: record, data_mode: record.data_mode }; }
+function workNode(work: ScholarlyWorkRef, raw?: unknown) { return { id: `openalex:${work.openalex_id.replace(/^.*\//, '')}`, country: 'openalex', type: 'scholarly-work', label: work.title ?? work.openalex_id, state: 'verified' as const, source_uri: work.source_url, record_id: work.openalex_id, boundary: work, ...(raw ? { raw_record: raw } : {}) }; }
+function trialNode(trial: TrialRegistryRef, raw?: unknown) { return { id: `ctg:${trial.nct_id}`, country: 'clinicaltrials.gov', type: 'registered-study', label: `${trial.nct_id} · ${trial.status ?? 'status unavailable'}`, state: 'verified' as const, source_uri: trial.source_url, record_id: trial.nct_id, boundary: trial, ...(raw ? { raw_record: raw } : {}) }; }
+function projectNode(project: ProjectFundingRef, raw?: unknown) { return { id: `reporter:${project.application_id}`, country: 'nih-reporter', type: 'project-year', label: `${project.core_project_id} · FY${project.fiscal_year}`, state: 'verified' as const, source_uri: project.source_url, record_id: project.application_id ?? project.project_number, boundary: project, ...(raw ? { raw_record: raw } : {}) }; }
+
+export async function investigateEntity(input: InvestigationQuery, options: Options): Promise<Investigation> {
+  const query = InvestigationQuerySchema.parse(input); const now = options.now ?? (() => new Date()); const graph: EvidenceGraph = { nodes: [], edges: [] }; const envelopes: DiplomaticEnvelope[] = []; const errors: Investigation['errors'] = [];
+  let providerRequests = 0; let budgetStops = 0; const ceiling = 45; const countedFetch: Fetcher = async (request, init) => { providerRequests++; if (providerRequests > ceiling) { budgetStops++; throw new Error('external request ceiling reached'); } return options.fetch(request, init); };
+  const openalex = new OpenAlexAdapter(countedFetch, options.cache, options.openAlexApiKey); const ctg = new ClinicalTrialsAdapter(countedFetch, options.cache); const reporter = new ReporterAdapter(countedFetch, options.cache); const uspto = new UsptoAdapter(); const openfda = new OpenFdaAdapter(countedFetch, options.cache, options.openFdaApiKey); const registry = createRegistry(); const context = { fetch: countedFetch, cache: options.cache, now };
+  const allowProvider = (provider: string) => !query.providers || query.providers.includes(provider as never); const allowCorridor = (corridor: string) => !query.corridors || query.corridors.includes(corridor);
+  const addEnvelope = (envelope: DiplomaticEnvelope) => { envelopes.push(envelope); mergeGraph(graph, envelope.evidence); errors.push(...envelope.errors.map(({ code, message, provider }) => ({ code, message, ...(provider ? { provider } : {}) }))); };
+  const runWork = async (identifier: string, hops = 0) => {
+    if (!allowProvider('openalex') || graph.nodes.length >= query.max_nodes) return; const { record } = await openalex.getWorkByIdOrPmid(identifier); const work = openalex.projectWork(record); mergeGraph(graph, { nodes: [workNode(work, record)], edges: [] }); if (hops >= query.max_hops) return;
+    if (allowCorridor('openalex-to-clinical-trials') && allowProvider('clinicaltrials.gov')) addEnvelope(await registry.get('openalex-to-clinical-trials').traverse(work, context));
+    if (allowCorridor('openalex-to-nih-reporter') && allowProvider('nih-reporter')) for (const award of openalex.projectAwards(record).slice(0, 5)) addEnvelope(await registry.get('openalex-to-nih-reporter').traverse(award, context));
+  };
+  const runTrial = async (identifier: string) => {
+    if (!allowProvider('clinicaltrials.gov')) return; const { record } = await ctg.getStudy(identifier); const trial = ctg.project(record, { method: 'exact_nct' }, now()); mergeGraph(graph, { nodes: [trialNode(trial, record)], edges: [] }); if (query.max_hops < 1) return;
+    if (allowCorridor('clinicaltrials-to-openalex-reverse') && allowProvider('openalex')) addEnvelope(await registry.get('clinicaltrials-to-openalex-reverse').traverse(trial, context));
+    if (allowCorridor('clinicaltrials-to-openfda') && allowProvider('openfda')) addEnvelope(await registry.get('clinicaltrials-to-openfda').traverse(trial, context));
+    for (const pmid of [...new Set(references(record).flatMap((reference) => reference.pmid ? [reference.pmid] : []))].slice(0, 3)) try { await runWork(pmid, 1); } catch (error) { errors.push({ code: 'OPENALEX_LOOKUP_FAILED', message: error instanceof Error ? error.message : String(error), provider: 'openalex' }); }
+  };
+  const runProject = async (identifier: string) => {
+    if (!allowProvider('nih-reporter')) return; const found = await reporter.findProjects(identifier, 25); const projects = found.records.map((record) => ({ source: record, projected: reporter.project(record) })); projects.forEach(({ source, projected }) => mergeGraph(graph, { nodes: [projectNode(projected, source)], edges: [] }));
+    if (!projects.length) errors.push({ code: 'NO_PROJECT', message: 'No exact NIH project-year records.', provider: 'nih-reporter' }); if (query.max_hops < 1) return;
+    if (allowCorridor('nih-reporter-to-uspto') && allowProvider('uspto') && projects[0]) addEnvelope(await registry.get('nih-reporter-to-uspto').traverse(projects[0].projected, context));
+    const core = normalizeProjectNumber(identifier).core; if (core && allowProvider('openalex')) { const publications = await reporter.findPublications({ coreProjectNums: [core] }, 5); for (const pmid of [...new Set(publications.records.map((publication) => String(publication.pmid)))].slice(0, 3)) try { await runWork(pmid, 1); } catch (error) { errors.push({ code: 'OPENALEX_LOOKUP_FAILED', message: error instanceof Error ? error.message : String(error), provider: 'openalex' }); } }
+  };
+  const runPatent = async (identifier: string) => { if (!allowProvider('uspto')) return; const patent = uspto.getByPatentNumber(identifier); if (!patent) { errors.push({ code: 'PATENT_NOT_IN_SNAPSHOT', message: 'Patent is not present in the bounded public snapshot.', provider: 'uspto' }); return; } mergeGraph(graph, { nodes: [patentNode(patent)], edges: [] }); if (query.max_hops >= 1 && allowProvider('nih-reporter')) for (const core of [...new Set(patent.government_interest.flatMap((interest) => interest.core_project_ids))].slice(0, 3)) await runProject(core); };
+  const runFda = async (identifier: string) => {
+    if (!allowProvider('openfda')) return; const upper = identifier.toUpperCase(); const kind: OpenFdaKind = /^K\d+/.test(upper) ? 'device_510k' : 'drug_application'; const result = await openfda.get(kind, upper); result.records.forEach((record) => mergeGraph(graph, { nodes: [fdaNode(record)], edges: [] })); if (!result.records.length) errors.push({ code: 'FDA_NOT_FOUND', message: 'No matching openFDA record.', provider: 'openfda' });
+    if (kind === 'drug_application' && query.max_hops >= 1) { const labels = await openfda.get('drug_label', upper); for (const label of labels.records) { mergeGraph(graph, { nodes: [fdaNode(label)], edges: [] }); const approval = result.records[0]; if (approval?.application_number && label.application_number === approval.application_number) graph.edges.push({ id: `edge:fda:${approval.record_id}:${label.record_id}`, from: fdaNode(approval).id, to: fdaNode(label).id, corridor_id: 'openfda-same-application', state: 'verified', evidence_tier: 'verified', relation_type: 'same_fda_application', match_method: 'exact_application', supporting_uris: [approval.source_url, label.source_url], supporting_record_ids: [approval.application_number, label.application_number], explanation: 'The drug approval and label share the exact FDA application number; the records retain their distinct regulatory semantics.' }); } }
   };
   try {
-    if (seed.work_id || seed.pmid) await processWork(seed.work_id ?? seed.pmid!);
-    else if (seed.nct_id) {
-      const { record } = await ctg.getStudy(seed.nct_id); const trial = ctg.project(record, { method: 'exact_nct' }, now()); graph.nodes.push({ id: `ctg:${trial.nct_id}`, country: 'clinicaltrials.gov', type: 'registered-study', label: `${trial.nct_id} · ${trial.status ?? 'status unavailable'}`, state: 'verified', source_uri: trial.source_url, record_id: trial.nct_id, boundary: trial, raw_record: record });
-      const pmids = [...new Set(references(record).flatMap((r) => r.pmid ? [r.pmid] : []))].slice(0, 3); for (const pmid of pmids) { try { await processWork(pmid); } catch (e) { errors.push({ code: 'OPENALEX_LOOKUP_FAILED', message: e instanceof Error ? e.message : String(e), provider: 'openalex' }); } }
-    } else if (seed.project_id) {
-      const norm = normalizeProjectNumber(seed.project_id); if (!norm.core) throw new Error('Unsupported project identifier');
-      const pubs = await reporter.findPublications({ coreProjectNums: [norm.core] }, 5); const pmids = [...new Set(pubs.records.map((p) => String(p.pmid)))].slice(0, 3); if (!pmids.length) errors.push({ code: 'NO_PUBLICATIONS', message: 'RePORTER returned no publications for this exact core project.', provider: 'nih-reporter' });
-      for (const pmid of pmids) { try { await processWork(pmid); } catch (e) { errors.push({ code: 'OPENALEX_LOOKUP_FAILED', message: e instanceof Error ? e.message : String(e), provider: 'openalex' }); } }
-    } else throw new Error('Provide one seed: work_id, pmid, nct_id, or project_id');
+    if (query.entry_type === 'trial') await runTrial(query.entry_id!); else if (query.entry_type === 'publication') await runWork(query.entry_id!); else if (query.entry_type === 'nih_project') await runProject(query.entry_id!); else if (query.entry_type === 'patent') await runPatent(query.entry_id!); else if (query.entry_type === 'fda_product') await runFda(query.entry_id!); else {
+      if (allowProvider('openalex')) { const works = await openalex.discoverWorks(query.query!, 8); for (const record of works.records) mergeGraph(graph, { nodes: [workNode(openalex.projectWork(record), record)], edges: [] }); }
+      if (allowProvider('uspto')) uspto.search(query.query!, 8).forEach((patent) => mergeGraph(graph, { nodes: [patentNode(patent)], edges: [] }));
+      if (allowProvider('openfda')) try { const products = await openfda.search(query.query!, 8); products.records.forEach((record) => mergeGraph(graph, { nodes: [fdaNode(record)], edges: [] })); } catch (error) { errors.push({ code: 'OPENFDA_TOPIC_FAILED', message: error instanceof Error ? error.message : String(error), provider: 'openfda' }); }
+    }
   } catch (error) { errors.push({ code: 'INVESTIGATION_FAILED', message: error instanceof Error ? error.message : String(error) }); }
-  const success = graph.nodes.some((n) => n.state === 'verified'); const failed = errors.some((e) => e.code === 'INVESTIGATION_FAILED');
-  return { schema_version: '0.1', status: failed && !success ? 'failed' : errors.length ? 'partial' : 'complete', seed: Object.fromEntries(Object.entries(seed).filter(([, v]) => v !== undefined)) as Record<string, string>, graph, envelopes, errors, generated_at: now().toISOString() };
+  const retained = graph.nodes.slice(0, query.max_nodes); const retainedIds = new Set(retained.map((node) => node.id)); const truncated = retained.length < graph.nodes.length; graph.nodes = retained; graph.edges = graph.edges.filter((edge) => retainedIds.has(edge.from) && retainedIds.has(edge.to) && (query.include_hypothesis_edges || edge.evidence_tier !== 'hypothesis'));
+  const trials = graph.nodes.filter((node) => node.country === 'clinicaltrials.gov').map((node) => node.boundary as TrialRegistryRef); const works = graph.nodes.filter((node) => node.country === 'openalex').map((node) => node.boundary as ScholarlyWorkRef); const patents = graph.nodes.filter((node) => node.country === 'uspto').map((node) => node.boundary as PatentGrantRef); const fda = graph.nodes.filter((node) => node.country === 'openfda').map((node) => node.boundary as FDAProductRef);
+  const summary = { nih_project_year_records: graph.nodes.filter((node) => node.country === 'nih-reporter').length, scholarly_works: works.length, scholarly_citations: works.reduce((sum, work) => sum + (work?.cited_by_count ?? 0), 0), trial_statuses: count(trials.flatMap((trial) => trial?.status ? [trial.status] : [])), trial_phases: count(trials.flatMap((trial) => trial?.phases ?? [])), patents: patents.length, assignees: new Set(patents.flatMap((patent) => patent?.assignees ?? [])).size, drug_approvals: fda.filter((record) => record?.record_kind === 'drug_application').length, device_clearances: fda.filter((record) => record?.record_kind === 'device_510k').length, drug_labels: fda.filter((record) => record?.record_kind === 'drug_label').length };
+  const success = graph.nodes.length > 0; const continuation = truncated || budgetStops ? btoa(JSON.stringify({ entry_type: query.entry_type, offset: graph.nodes.length })) : null;
+  return { schema_version: '0.3', status: !success ? 'failed' : errors.length || truncated || budgetStops ? 'partial' : 'complete', query, seed: query.entry_type === 'topic' ? { topic: query.query! } : { [query.entry_type]: query.entry_id! }, graph, envelopes, summary, telemetry: { provider_requests: providerRequests, request_ceiling: ceiling, budget_stops: budgetStops, max_nodes: query.max_nodes, max_hops: query.max_hops, partial_failures: errors.length }, errors, continuation, generated_at: now().toISOString() };
+}
+
+export async function investigate(seed: { work_id?: string; pmid?: string; nct_id?: string; project_id?: string }, options: Options) {
+  if (seed.nct_id) return investigateEntity(InvestigationQuerySchema.parse({ entry_type: 'trial', entry_id: seed.nct_id }), options);
+  if (seed.project_id) return investigateEntity(InvestigationQuerySchema.parse({ entry_type: 'nih_project', entry_id: seed.project_id }), options);
+  const publication = seed.work_id ?? seed.pmid; if (publication) return investigateEntity(InvestigationQuerySchema.parse({ entry_type: 'publication', entry_id: publication }), options);
+  throw new Error('Provide one seed: work_id, pmid, nct_id, or project_id');
 }

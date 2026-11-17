@@ -1,6 +1,6 @@
 {
   "name": "federated-corridor-kernel",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "check": "npm run typecheck && npm test && npm run build",
     "deploy": "wrangler deploy",
     "cf-typegen": "wrangler types",
-    "benchmark:utility": "tsx benchmarks/prove_utility.ts"
+    "benchmark:utility": "tsx benchmarks/prove_utility.ts",
+    "benchmark:utility:v03": "tsx benchmarks/prove_utility_v03.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.2",

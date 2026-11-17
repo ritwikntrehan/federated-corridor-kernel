@@ -1,32 +1,29 @@
 # Architecture
 
-The kernel is deliberately smaller than every source adapter. It knows boundary names, envelopes, evidence nodes/edges, corridor declarations, compatibility checks, bounded execution, and registry discovery. It does not know OpenAlex field paths, RePORTER URLs, or trial schemas.
-
 ```text
-REST / MCP / inspector
-        │
- investigation service ───── complete graph + envelopes
-        │
- declarative registry ────── type compatibility / limits
-      ╱   ╲
- OpenAlex→RePORTER   OpenAlex↔ClinicalTrials.gov
-      │                         │
- source adapters + source-specific Zod response probes
+REST / MCP / interactive inspector
+                 │
+ bounded multi-entry investigation (≤45 external requests)
+                 │
+ typed corridor registry + DiplomaticEnvelope provenance
+       ┌─────────┼──────────┬───────────┐
+   OpenAlex   RePORTER   ClinicalTrials   USPTO snapshot   openFDA
 ```
 
-## Transformations
+The kernel owns boundary validation, evidence tiers, relation types, envelopes, request ceilings, deduplication, continuation, and partial failure. Each adapter owns source URLs, response probes, field semantics, caching, and projections.
 
-- Lossless: raw award identifier preservation, source URLs/record IDs, NCT ID, PMID, DOI, phases, status, project number, application ID, core project ID, fiscal year, and award amount.
-- Partial: OpenAlex native records projected into minimal work/award boundaries; RePORTER records projected into a project-year boundary; trial records projected into status/reference summaries. Raw records or reproducible source references remain beside projections.
-- Conservative normalization: NIH core-project extraction accepts a narrow activity/institute/serial pattern. Ambiguous or contract-style identifiers remain visible and unsupported.
-- Identity: `identity()` structured-clones an envelope and preserves canonical payload/evidence.
-- Composition: registry composition rejects output/input boundary mismatches before calling an adapter.
-- Practical commuting check: independent identity claims are compared and reported as agreement or conflict; conflicts are never auto-merged.
+## Countries and crossings
 
-## Failure and caching model
+- OpenAlex ↔ ClinicalTrials.gov: exact PMID/DOI references and reverse exact NCT mentions reconstructed from `abstract_inverted_index`.
+- OpenAlex → NIH RePORTER: preserved funder award normalized to an exact NIH core.
+- NIH RePORTER → USPTO: exact NIH core in a patent government-interest record from the public snapshot.
+- ClinicalTrials.gov → openFDA: exact NCT token in returned label JSON.
+- openFDA application → label: exact shared application number. Drug applications and device 510(k) clearances have separate node types and summary counters.
 
-Each corridor returns a complete, partial, or failed envelope. A provider failure does not discard successful branches. KV is optional; a bounded in-memory cache keeps local/preview operation functional. RePORTER requests are serialized to roughly one request per second on cache misses. No arbitrary URL fetch or unbounded traversal exists.
+Patent non-patent-literature joins remain unavailable because the bounded extract has no DOI/PMID citation rows. Optional USPTO live access is not treated as available until an endpoint is probed and shown to expose grant and government-interest fields.
 
-## Trust boundary
+## Trust and failure model
 
-Only exact award/core-project, PMID, DOI, and NCT evidence can create verified edges. Similarity is a declared but disabled candidate method. The graph validator requires every edge endpoint to be a source-backed node.
+Verified edges require exact source evidence. Similarity never becomes verified because of a score. Missing abstracts, search false positives, unsupported patents, no-match labels, provider outages, and isolated nodes are ordinary outcomes. Successful provider records survive failures elsewhere.
+
+KV is optional; local and preview operation use a bounded memory cache. API keys are excluded from public request URLs and cache keys. Snapshot nodes carry `data_mode`, `snapshot_source`, and `snapshot_date`; live FDA nodes carry `data_mode: live_api`.

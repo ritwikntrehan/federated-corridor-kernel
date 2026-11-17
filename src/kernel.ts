@@ -47,7 +47,7 @@ export class Registry {
     return chain;
   }
   capabilities() {
-    return { schema_version: '0.1', countries: ['openalex', 'nih-reporter', 'clinicaltrials.gov'], boundaries: Object.keys(BoundarySchemas), corridors: this.list().map(({ traverse: _t, ...c }) => c) };
+    return { schema_version: '0.3', countries: ['openalex', 'nih-reporter', 'clinicaltrials.gov', 'uspto', 'openfda'], boundaries: Object.keys(BoundarySchemas), corridors: this.list().map(({ traverse: _t, ...c }) => c) };
   }
 }
 
@@ -55,9 +55,9 @@ export function validateInput(boundary: BoundaryName, value: unknown) { return B
 
 export function makeEnvelope<T>(input: {
   payload: T; status?: 'complete' | 'partial' | 'failed'; passport: DiplomaticEnvelope<T>['passport']; customs: DiplomaticEnvelope<T>['customs_declaration'];
-  interpreter?: DiplomaticEnvelope<T>['resident_interpreter']; evidence?: EvidenceGraph; errors?: DiplomaticEnvelope<T>['errors'];
+  interpreter?: DiplomaticEnvelope<T>['resident_interpreter']; evidence?: EvidenceGraph; errors?: DiplomaticEnvelope<T>['errors']; dataMode?: DiplomaticEnvelope<T>['data_mode'];
 }): DiplomaticEnvelope<T> {
-  const envelope = { schema_version: '0.1' as const, envelope_id: crypto.randomUUID(), status: input.status ?? 'complete', payload: input.payload, passport: input.passport,
+  const envelope = { schema_version: '0.1' as const, envelope_id: crypto.randomUUID(), status: input.status ?? 'complete', data_mode: input.dataMode ?? (input.passport.hops.some((hop) => hop.request.method === 'SNAPSHOT') ? 'verified_public_snapshot' as const : 'live_api' as const), payload: input.payload, passport: input.passport,
     customs_declaration: input.customs, resident_interpreter: input.interpreter ?? [], evidence: input.evidence ?? { nodes: [], edges: [] }, errors: input.errors ?? [] };
   DiplomaticEnvelopeSchema.parse(envelope);
   return envelope;

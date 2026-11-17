@@ -1,0 +1,184 @@
+{
+  "artifact_version": "0.3",
+  "run_kind": "live_plus_verified_public_snapshot",
+  "run_utc": "2026-11-17T08:29:22.909Z",
+  "v02_commit": "d88cf6a82493a369b46bf730980dac7ba0e5c45c",
+  "runtime_ms": 4797,
+  "selected_ids": [
+    "NCT05753007",
+    "NCT00006092",
+    "NCT00862134",
+    "NCT00330564",
+    "NCT00003516",
+    "NCT01938833",
+    "NCT00179738",
+    "NCT00209014",
+    "NCT00004221",
+    "NCT03773133",
+    "NCT02543749",
+    "NCT03109847",
+    "NCT02162758",
+    "NCT04690855",
+    "NCT02013778"
+  ],
+  "baseline_previously_unlinked": 13,
+  "previously_unlinked_with_new_exact_nct_mentions": 1,
+  "newly_connected_openalex_works": 1,
+  "unique_nih_cores": 0,
+  "distinct_patents_with_verified_joins": 0,
+  "standalone_verified_patent_records": 2,
+  "fda_label_records": 0,
+  "verified_edges": 1,
+  "hypothesis_edges": 0,
+  "isolated_snapshot_patents": 2,
+  "provider_requests": 30,
+  "cache_hits": 0,
+  "budget_stops": 0,
+  "timeouts": 0,
+  "data_modes": {
+    "live_openalex_works": 1,
+    "live_openfda_records": 0,
+    "verified_public_snapshot_patents": 2
+  },
+  "request_urls": [
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT05753007&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT05753007&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT00006092&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT00006092&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT00862134&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT00862134&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT00330564&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT00330564&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT00003516&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT00003516&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT01938833&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT01938833&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT00179738&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT00179738&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT00209014&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT00209014&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT00004221&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT00004221&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT03773133&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT03773133&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT02543749&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT02543749&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT03109847&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT03109847&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT02162758&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT02162758&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT04690855&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT04690855&limit=10",
+    "https://api.openalex.org/works?filter=title_and_abstract.search%3ANCT02013778&per-page=10",
+    "https://api.fda.gov/drug/label.json?search=NCT02013778&limit=10"
+  ],
+  "outcomes": [
+    {
+      "nct_id": "NCT05753007",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT00006092",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT00862134",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT00330564",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT00003516",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT01938833",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT00179738",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT00209014",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT00004221",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT03773133",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT02543749",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT03109847",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT02162758",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT04690855",
+      "works": [
+        "https://openalex.org/W4322772071"
+      ],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    },
+    {
+      "nct_id": "NCT02013778",
+      "works": [],
+      "nih_cores": [],
+      "fda_records": [],
+      "errors": []
+    }
+  ]
+}

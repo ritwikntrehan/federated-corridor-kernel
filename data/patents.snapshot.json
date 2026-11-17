@@ -1,0 +1,34 @@
+{
+  "schema_version": "0.3",
+  "snapshot_date": "2026-11-17",
+  "snapshot_source": "https://search.patentsview.org/",
+  "source_release_date": "2024-06-30",
+  "source_notes": "Bounded extract of public US patent-grant fields. PatentSearch 2.1.2 reports coverage through 2024-06-30; grant pages are retained as record-level source URLs.",
+  "records": [
+    {
+      "patent_number": "US10407381B2",
+      "title": "Cyclopropylmethanamines as selective 5-HT2C receptor agonists",
+      "grant_date": "2019-09-10",
+      "assignees": ["The Board of Trustees of the University of Illinois"],
+      "inventors": ["Alan P. Kozikowski", "Jianjun Cheng"],
+      "cpc_categories": ["C07D295/088", "A61K31/445"],
+      "government_interest": [{
+        "text": "This invention was made with government support under grant number R01 MH99993, awarded by NIH/NIDA.",
+        "core_project_ids": ["R01MH099993"]
+      }],
+      "non_patent_literature": [],
+      "source_url": "https://patents.google.com/patent/US10407381B2/en"
+    },
+    {
+      "patent_number": "US10000000B2",
+      "title": "Coherent LADAR using intra-pixel quadrature detection",
+      "grant_date": "2018-06-19",
+      "assignees": ["Raytheon Company"],
+      "inventors": ["Joseph C. Marron", "David R. Stettner"],
+      "cpc_categories": ["G01S7/481", "G01S17/89"],
+      "government_interest": [],
+      "non_patent_literature": [],
+      "source_url": "https://patents.google.com/patent/US10000000B2/en"
+    }
+  ]
+}
