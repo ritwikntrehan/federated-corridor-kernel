@@ -1,6 +1,6 @@
 {
   "name": "federated-corridor-kernel",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,8 @@
     "test:live": "LIVE_SMOKE=1 vitest run tests/live.smoke.test.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "deploy": "wrangler deploy",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "benchmark:utility": "tsx benchmarks/prove_utility.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.2",
@@ -20,9 +21,11 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "@cloudflare/vite-plugin": "^1.69.1",
     "@cloudflare/workers-types": "^5.20261117.1",
     "typescript": "^5.9.3",
+    "tsx": "^4.20.6",
     "vite": "^7.3.1",
     "vitest": "^4.1.12",
     "wrangler": "^4.163.0"

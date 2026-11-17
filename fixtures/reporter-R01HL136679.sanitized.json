@@ -1,7 +1,7 @@
 {
   "meta": { "total": 5, "offset": 0, "limit": 25 },
   "results": [
-    { "appl_id": 10229386, "project_num": "5R01HL136679-05", "core_project_num": "R01HL136679", "fiscal_year": 2021, "award_amount": 693790, "agency_code": "NIH", "project_title": "Blood Pressure and Kidney Function - SPRINT vs Electronic Health Record Data" },
-    { "appl_id": 9964523, "project_num": "5R01HL136679-04", "core_project_num": "R01HL136679", "fiscal_year": 2020, "award_amount": 724462, "agency_code": "NIH", "project_title": "Blood Pressure and Kidney Function - SPRINT vs Electronic Health Record Data" }
+    { "appl_id": 10229386, "project_num": "5R01HL136679-05", "core_project_num": "R01HL136679", "fiscal_year": 2021, "award_amount": 693790, "direct_cost_amt": 579725, "indirect_cost_amt": 114065, "agency_code": "NIH", "project_title": "Blood Pressure and Kidney Function - SPRINT vs Electronic Health Record Data", "project_start_date": "2017-08-17T00:00:00", "project_end_date": "2023-06-30T00:00:00", "full_study_section": { "srg_code": "KNOD", "srg_flex": null }, "organization": { "org_name": "UNIVERSITY OF MINNESOTA", "primary_uei": "KABJZBBJ4B54", "org_fips": "US" }, "principal_investigators": [{ "profile_id": 10004216, "full_name": "Paul Englund Drawz" }] },
+    { "appl_id": 9964523, "project_num": "5R01HL136679-04", "core_project_num": "R01HL136679", "fiscal_year": 2020, "award_amount": 724462, "direct_cost_amt": 610227, "indirect_cost_amt": 114235, "agency_code": "NIH", "project_title": "Blood Pressure and Kidney Function - SPRINT vs Electronic Health Record Data", "project_start_date": "2017-08-17T00:00:00", "project_end_date": "2022-06-30T00:00:00", "full_study_section": { "srg_code": "KNOD", "srg_flex": null }, "organization": { "org_name": "UNIVERSITY OF MINNESOTA", "primary_uei": "KABJZBBJ4B54", "org_fips": "US" }, "principal_investigators": [{ "profile_id": 10004216, "full_name": "Paul Englund Drawz" }] }
   ]
 }

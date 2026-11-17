@@ -16,6 +16,10 @@ export const ScholarlyWorkRefSchema = z.object({
   doi: z.string().min(3).optional(),
   pmid: z.string().regex(/^\d+$/).optional(),
   title: nonEmpty.optional(),
+  cited_by_count: z.number().int().nonnegative().optional(),
+  counts_by_year: z.array(z.object({ year: z.number().int(), cited_by_count: z.number().int().nonnegative() })).optional(),
+  publication_year: z.number().int().min(1600).max(2200).optional(),
+  author_institution_rors: z.array(httpUrl).optional(),
   publication_date: z.string().date().optional(),
   source_url: httpUrl
 }).refine((v) => Boolean(v.doi || v.pmid), 'DOI or PMID is required');
@@ -37,9 +41,16 @@ export const ProjectFundingRefSchema = z.object({
   project_number: nonEmpty,
   fiscal_year: z.number().int().min(1900).max(2200),
   amount: z.number().finite().nonnegative().nullable(),
+  direct_cost_amount: z.number().finite().nonnegative().nullable().optional(),
+  indirect_cost_amount: z.number().finite().nonnegative().nullable().optional(),
   currency: z.literal('USD'),
   amount_semantics: z.literal('NIH RePORTER award amount for this project record and fiscal year; not funding paid to produce a specific publication.'),
   agency: nonEmpty,
+  study_section: z.object({ code: nonEmpty.optional(), flex: nonEmpty.optional() }).optional(),
+  organization: z.object({ name: nonEmpty.optional(), uei: nonEmpty.optional(), fips: nonEmpty.optional() }).optional(),
+  principal_investigators: z.array(z.object({ id: nonEmpty.optional(), name: nonEmpty })).optional(),
+  project_start_date: nonEmpty.optional(),
+  project_end_date: nonEmpty.optional(),
   source_url: httpUrl
 });
 
@@ -54,6 +65,12 @@ export const TrialRegistryRefSchema = z.object({
   match_method: z.enum(['exact_nct', 'exact_pmid', 'exact_doi', 'candidate_similarity']),
   confidence: z.number().min(0).max(1),
   status: nonEmpty.optional(),
+  why_stopped: nonEmpty.optional(),
+  enrollment: z.object({ count: z.number().int().nonnegative(), type: nonEmpty.optional() }).optional(),
+  lead_sponsor: z.object({ name: nonEmpty, class: nonEmpty.optional() }).optional(),
+  primary_outcomes: z.array(z.object({ measure: nonEmpty, description: z.string().optional(), time_frame: z.string().optional() })).optional(),
+  study_type: nonEmpty.optional(),
+  study_dates: z.object({ start: nonEmpty.optional(), primary_completion: nonEmpty.optional(), completion: nonEmpty.optional() }).optional(),
   phases: z.array(nonEmpty),
   sponsor: nonEmpty.optional(),
   conditions: z.array(nonEmpty),
@@ -112,6 +129,7 @@ export const InterpreterMappingSchema = z.object({
   canonical_name: nonEmpty,
   unit: z.string().optional(),
   semantics: nonEmpty,
+  null_semantics: z.string().optional(),
   transformation_version: nonEmpty
 });
 
@@ -133,10 +151,21 @@ export const EvidenceEdgeSchema = z.object({
   to: nonEmpty,
   corridor_id: nonEmpty,
   state: z.enum(['verified', 'candidate', 'unmatched', 'failed']),
+  evidence_tier: z.enum(['verified', 'hypothesis']).optional(),
   match_method: z.enum(['exact_nct', 'exact_pmid', 'exact_doi', 'verified_award', 'candidate_similarity', 'none', 'provider_failure']),
   supporting_uris: z.array(httpUrl).min(1),
   supporting_record_ids: z.array(nonEmpty).min(1),
-  explanation: nonEmpty
+  explanation: nonEmpty,
+  match_basis: z.array(nonEmpty).optional(),
+  compared_fields: z.array(nonEmpty).optional(),
+  heuristic_score: z.number().min(0).max(1).optional(),
+  qualitative_strength: z.enum(['weak', 'moderate', 'strong']).optional()
+}).superRefine((edge, ctx) => {
+  const tier = edge.evidence_tier ?? (edge.state === 'candidate' ? 'hypothesis' : 'verified');
+  if (tier === 'hypothesis' && (!edge.match_basis?.length || !edge.compared_fields?.length || (edge.heuristic_score === undefined && edge.qualitative_strength === undefined))) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'hypothesis edges require match_basis, compared_fields, and an uncalibrated score or strength' });
+  }
+  if (edge.state === 'verified' && tier !== 'verified') ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'verified edges require verified evidence tier' });
 });
 
 export const EvidenceSchema = z.object({ nodes: z.array(EvidenceNodeSchema), edges: z.array(EvidenceEdgeSchema) }).superRefine((g, ctx) => {
@@ -160,3 +189,38 @@ export const DiplomaticEnvelopeSchema = z.object({
 
 export type DiplomaticEnvelope<T = unknown> = Omit<z.infer<typeof DiplomaticEnvelopeSchema>, 'payload'> & { payload: T };
 export type EvidenceGraph = z.infer<typeof EvidenceSchema>;
+export type EvidenceNode = z.infer<typeof EvidenceNodeSchema>;
+
+export const CohortQuerySchema = z.object({
+  origin_country: z.enum(['clinicaltrials.gov', 'nih-reporter', 'openalex']),
+  seed_filter: z.object({
+    domain: nonEmpty.optional(), status: nonEmpty.optional(), phase: nonEmpty.optional(), study_type: nonEmpty.optional(),
+    fiscal_year_from: z.number().int().min(1985).max(2200).optional(), fiscal_year_to: z.number().int().min(1985).max(2200).optional(),
+    activity_codes: z.array(z.enum(['R01', 'U01'])).optional(), topic: nonEmpty.optional(), institution_ror: httpUrl.optional()
+  }).strict(),
+  max_seeds: z.number().int().min(1).max(25).default(15),
+  corridors: z.array(z.enum(['clinicaltrials-to-openalex', 'openalex-to-nih-reporter', 'openalex-to-clinical-trials'])).min(1).default(['clinicaltrials-to-openalex', 'openalex-to-nih-reporter']),
+  include_hypothesis_edges: z.boolean().default(false),
+  continuation: z.object({ seed_offset: z.number().int().nonnegative() }).optional()
+}).superRefine((query, ctx) => {
+  const f = query.seed_filter;
+  if (query.origin_country === 'clinicaltrials.gov' && !(f.domain || f.status || f.phase || f.study_type)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'clinicaltrials.gov cohorts require a constrained trial filter' });
+  if (query.origin_country === 'nih-reporter' && !(f.domain && f.fiscal_year_from && f.fiscal_year_to)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'NIH cohorts require domain and fiscal-year bounds' });
+  if (query.origin_country === 'openalex' && !(f.topic || f.institution_ror)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'OpenAlex cohorts require topic or institution_ror' });
+});
+export type CohortQuery = z.infer<typeof CohortQuerySchema>;
+
+const CorridorTelemetrySchema = z.object({ attempts: z.number().int().nonnegative(), verified_edges: z.number().int().nonnegative(), hypothesis_edges: z.number().int().nonnegative(), no_matches: z.number().int().nonnegative(), errors: z.number().int().nonnegative() });
+export const CohortTelemetrySchema = z.object({
+  seeds_discovered: z.number().int().nonnegative(), seeds_selected: z.number().int().nonnegative(), seeds_attempted: z.number().int().nonnegative(), seeds_completed: z.number().int().nonnegative(),
+  unique_boundary_keys_extracted: z.record(z.string(), z.number().int().nonnegative()), corridors: z.record(z.string(), CorridorTelemetrySchema),
+  unique_source_nodes: z.number().int().nonnegative(), unique_verified_relationships: z.number().int().nonnegative(), unique_hypothesis_relationships: z.number().int().nonnegative(),
+  provider_requests: z.number().int().nonnegative(), cache_hits: z.number().int().nonnegative(), deduplicated_requests: z.number().int().nonnegative(), timeouts: z.number().int().nonnegative(), retries: z.number().int().nonnegative(), partial_budget_stops: z.number().int().nonnegative(),
+  drop_off_reasons: z.record(z.string(), z.number().int().nonnegative())
+});
+export const CohortResultSchema = z.object({
+  schema_version: z.literal('0.2'), status: z.enum(['complete', 'partial', 'failed']), query: CohortQuerySchema, selected_seed_ids: z.array(nonEmpty), graph: EvidenceSchema,
+  envelopes: z.array(DiplomaticEnvelopeSchema), telemetry: CohortTelemetrySchema, errors: z.array(z.object({ code: nonEmpty, message: nonEmpty, provider: z.string().optional(), seed_id: z.string().optional() })),
+  continuation: z.object({ seed_offset: z.number().int().nonnegative() }).nullable(), generated_at: z.string().datetime()
+});
+export type CohortResult = z.infer<typeof CohortResultSchema>;

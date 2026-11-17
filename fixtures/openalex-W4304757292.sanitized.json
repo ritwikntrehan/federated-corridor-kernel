@@ -2,7 +2,20 @@
   "id": "https://openalex.org/W4304757292",
   "doi": "https://doi.org/10.1001/jamacardio.2022.3345",
   "title": "Longer-Term All-Cause and Cardiovascular Mortality With Intensive Blood Pressure Control: A Secondary Analysis of a Randomized Clinical Trial",
-  "publication_date": "2022-11-01",
+  "publication_date": "2022-10-12",
+  "publication_year": 2022,
+  "cited_by_count": 78,
+  "counts_by_year": [
+    { "year": 2026, "cited_by_count": 10 },
+    { "year": 2025, "cited_by_count": 18 },
+    { "year": 2024, "cited_by_count": 22 },
+    { "year": 2023, "cited_by_count": 24 },
+    { "year": 2022, "cited_by_count": 4 }
+  ],
+  "authorships": [
+    { "institutions": [{ "ror": "https://ror.org/046r1r105" }, { "ror": "https://ror.org/0207ad724" }] },
+    { "institutions": [{ "ror": "https://ror.org/03r0ha626" }] }
+  ],
   "ids": { "openalex": "https://openalex.org/W4304757292", "doi": "https://doi.org/10.1001/jamacardio.2022.3345", "pmid": "https://pubmed.ncbi.nlm.nih.gov/36223105" },
   "awards": [
     { "id": "https://openalex.org/G1772362000", "display_name": "Blood Pressure and Kidney Function - SPRINT vs Electronic Health Record Data", "funder_award_id": "R01HL136679", "funder_id": "https://openalex.org/F4320337338", "funder_display_name": "National Heart, Lung, and Blood Institute" },

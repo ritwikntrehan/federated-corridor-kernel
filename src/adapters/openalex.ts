@@ -8,6 +8,9 @@ const AwardSchema = z.object({
 }).passthrough();
 export const OpenAlexWorkSchema = z.object({
   id: z.string(), title: z.string(), publication_date: z.string().nullable().optional(), doi: z.string().nullable().optional(),
+  publication_year: z.number().nullable().optional(), cited_by_count: z.number().int().nonnegative().optional(),
+  counts_by_year: z.array(z.object({ year: z.number().int(), cited_by_count: z.number().int().nonnegative() }).passthrough()).optional(),
+  authorships: z.array(z.object({ institutions: z.array(z.object({ ror: z.string().nullable().optional() }).passthrough()).optional() }).passthrough()).optional(),
   ids: z.object({ openalex: z.string(), doi: z.string().nullable().optional(), pmid: z.string().nullable().optional() }).passthrough(),
   awards: z.array(AwardSchema).nullable().optional(), funders: z.array(z.unknown()).nullable().optional()
 }).passthrough();
@@ -37,13 +40,24 @@ export class OpenAlexAdapter {
     return { records: parsed.results, cache, url: url.toString() };
   }
   async getWorkByIdOrPmid(id: string) {
-    const normalized = /^\d+$/.test(id) ? `pmid:${id}` : bareId(id);
+    const normalized = /^\d+$/.test(id) ? `pmid:${id}` : /^(https?:\/\/)?(dx\.)?doi\.org\//i.test(id) ? `doi:${bareDoi(id)}` : id.includes('/') && !id.includes('openalex.org') ? `doi:${bareDoi(id)}` : bareId(id);
     const url = this.url(`works/${encodeURIComponent(normalized)}`);
     const { data, cache } = await this.get(url);
     return { record: OpenAlexWorkSchema.parse(data), cache, url: url.toString() };
   }
+  async discoverCohort(filter: { topic?: string; institutionRor?: string }, limit = 15, offset = 0) {
+    const safeLimit = Math.min(Math.max(limit, 1), 25); const url = this.url('works');
+    if (filter.topic) url.searchParams.set('search', filter.topic);
+    if (filter.institutionRor) url.searchParams.set('filter', `institutions.ror:${filter.institutionRor}`);
+    url.searchParams.set('per-page', String(safeLimit)); url.searchParams.set('page', String(Math.floor(offset / safeLimit) + 1)); url.searchParams.set('sort', 'id:asc');
+    const { data, cache } = await this.get(url); const parsed = z.object({ results: z.array(OpenAlexWorkSchema), meta: z.object({ count: z.number().optional() }).passthrough().optional() }).parse(data);
+    return { records: parsed.results, total: parsed.meta?.count ?? parsed.results.length, cache, url: url.toString() };
+  }
   projectWork(record: OpenAlexWork): ScholarlyWorkRef {
+    const rors = [...new Set((record.authorships ?? []).flatMap((a) => (a.institutions ?? []).flatMap((i) => i.ror ? [i.ror] : [])))];
     return ScholarlyWorkRefSchema.parse({ boundary_type: BoundaryNames.work, openalex_id: record.id, doi: bareDoi(record.doi ?? record.ids.doi), pmid: barePmid(record.ids.pmid), title: record.title,
+      ...(record.cited_by_count !== undefined ? { cited_by_count: record.cited_by_count } : {}), ...(record.counts_by_year ? { counts_by_year: record.counts_by_year } : {}),
+      ...(record.publication_year ? { publication_year: record.publication_year } : {}), ...(rors.length ? { author_institution_rors: rors } : {}),
       ...(record.publication_date ? { publication_date: record.publication_date } : {}), source_url: record.id });
   }
   projectAwards(record: OpenAlexWork): GrantAwardRef[] {

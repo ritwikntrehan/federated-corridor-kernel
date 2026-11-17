@@ -1,11 +1,12 @@
 {
   "protocolSection": {
     "identificationModule": { "nctId": "NCT01206062", "briefTitle": "Systolic Blood Pressure Intervention Trial" },
-    "statusModule": { "overallStatus": "COMPLETED" },
-    "designModule": { "phases": ["NA"] },
-    "sponsorCollaboratorsModule": { "leadSponsor": { "name": "National Heart, Lung, and Blood Institute (NHLBI)" } },
+    "statusModule": { "overallStatus": "COMPLETED", "startDateStruct": { "date": "2010-10", "type": "ACTUAL" }, "primaryCompletionDateStruct": { "date": "2016-07", "type": "ACTUAL" }, "completionDateStruct": { "date": "2019-03", "type": "ACTUAL" } },
+    "designModule": { "studyType": "INTERVENTIONAL", "phases": ["NA"], "enrollmentInfo": { "count": 9361, "type": "ACTUAL" } },
+    "sponsorCollaboratorsModule": { "leadSponsor": { "name": "National Heart, Lung, and Blood Institute (NHLBI)", "class": "NIH" } },
     "conditionsModule": { "conditions": ["Hypertension"] },
     "armsInterventionsModule": { "interventions": [{ "name": "Intensive Treatment" }, { "name": "Standard Treatment" }] },
+    "outcomesModule": { "primaryOutcomes": [{ "measure": "Number of participants with first occurrence of a cardiovascular primary outcome", "timeFrame": "6 years" }] },
     "referencesModule": { "references": [
       { "pmid": "26551272", "type": "RESULT", "citation": "A Randomized Trial of Intensive versus Standard Blood-Pressure Control. doi: 10.1056/NEJMoa1511939." },
       { "pmid": "36223105", "type": "DERIVED", "citation": "Longer-Term All-Cause and Cardiovascular Mortality With Intensive Blood Pressure Control. doi: 10.1001/jamacardio.2022.3345." }

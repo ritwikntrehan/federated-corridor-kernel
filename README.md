@@ -16,6 +16,7 @@ No API key or AI call is required. Open the printed local URL and click **Load v
 ```bash
 npm run check       # strict typecheck, deterministic tests, production build
 npm run test:live   # opt-in current-upstream smoke checks
+npm run benchmark:utility # opt-in live 15-seed workloads; writes UTILITY_PROOF.md + JSON
 ```
 
 ## HTTP
@@ -25,10 +26,13 @@ npm run test:live   # opt-in current-upstream smoke checks
 - `POST /api/v1/traverse/openalex-to-nih-reporter`
 - `POST /api/v1/traverse/openalex-to-clinical-trials`
 - `GET /api/v1/investigate?pmid=36223105`
+- `POST /api/v1/cohort` — constrained ClinicalTrials.gov, NIH RePORTER, or OpenAlex cohort traversal (15 seeds by default, 25 maximum)
 - `GET /api/v1/health`, `/api/v1/openapi.json`, `/api/v1/examples`
-- `POST /mcp` — Streamable HTTP MCP with `list_countries`, `list_corridors`, `resolve_boundary`, `traverse_corridor`, and `investigate_research_chain`
+- `POST /mcp` — Streamable HTTP MCP with the five v0.1 tools plus `traverse_cohort`
 
 Investigation accepts exactly one of `work_id`, `pmid`, `nct_id`, or `project_id`. Export from the inspector preserves the entire DAG and every envelope, not screen coordinates.
+
+The cohort endpoint defaults to exact links only (`include_hypothesis_edges=false`), reports a denominator-defined per-corridor funnel and drop-offs, and returns a continuation when the Worker request budget is reached. See [BENCHMARK_METHOD.md](BENCHMARK_METHOD.md) and the genuine live observations in [UTILITY_PROOF.md](UTILITY_PROOF.md).
 
 ## Principles
 
